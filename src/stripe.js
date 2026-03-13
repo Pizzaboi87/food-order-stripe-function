@@ -23,7 +23,7 @@ class StripeService {
     /** @type {import('stripe').Stripe.Checkout.SessionCreateParams.LineItem} */
     const lineItem = {
       price_data: {
-        unit_amount: amount,
+        unit_amount: amount * 100,
         currency: 'huf',
         product_data: {
           name: 'Rendeles',
