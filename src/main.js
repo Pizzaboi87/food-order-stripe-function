@@ -29,11 +29,12 @@ export default async (context) => {
   const stripe = new StripeService();
 
   switch (req.path) {
-    case '/checkout':
+    case '/checkout': {
       const fallbackUrl = req.scheme + '://' + req.headers['host'] + '/';
 
       const successUrl = req.body?.successUrl ?? fallbackUrl;
       const failureUrl = req.body?.failureUrl ?? fallbackUrl;
+      const amountHuf = req.body?.amountHuf;
 
       const userId = req.headers['x-appwrite-user-id'];
       if (!userId) {
@@ -45,8 +46,10 @@ export default async (context) => {
         context,
         userId,
         successUrl,
-        failureUrl
+        failureUrl,
+        amountHuf
       );
+
       if (!session) {
         error('Failed to create Stripe checkout session.');
         return res.redirect(failureUrl, 303);
@@ -57,8 +60,9 @@ export default async (context) => {
 
       log(`Created Stripe checkout session for user ${userId}.`);
       return res.redirect(session.url, 303);
+    }
 
-    case '/webhook':
+    case '/webhook': {
       const event = stripe.validateWebhook(context, req);
       if (!event) {
         return res.json({ success: false }, 401);
@@ -80,6 +84,7 @@ export default async (context) => {
       }
 
       return res.json({ success: true });
+    }
 
     default:
       return res.text('Not Found', 404);
