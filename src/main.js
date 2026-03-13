@@ -20,14 +20,16 @@ export default async (context) => {
   throwIfMissing(process.env, [
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
-    "APPWRITE_FUNCTION_API_KEY",
   ]);
 
   const databaseId = process.env.APPWRITE_DATABASE_ID;
   const collectionId = process.env.APPWRITE_COLLECTION_ID;
 
   if (!databaseId || !collectionId) {
-    return res.json({ success: false, error: "Missing APPWRITE_DATABASE_ID / APPWRITE_COLLECTION_ID" }, 500);
+    return res.json(
+      { success: false, error: "Missing APPWRITE_DATABASE_ID / APPWRITE_COLLECTION_ID" },
+      500
+    );
   }
 
   if (req.method === "GET") {
@@ -43,7 +45,7 @@ export default async (context) => {
   }
 
   const apiKeyFromHeader = req.headers["x-appwrite-key"];
-  const appwrite = new AppwriteService(apiKeyFromHeader ?? process.env.APPWRITE_FUNCTION_API_KEY);
+  const appwrite = new AppwriteService(apiKeyFromHeader);
   const stripe = new StripeService();
 
   switch (req.path) {
