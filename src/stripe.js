@@ -27,7 +27,6 @@ class StripeService {
     /** @type {import('stripe').Stripe.Checkout.SessionCreateParams.LineItem} */
     const lineItem = {
       price_data: {
-        // A te adatmodellhez itt kell a *100.
         unit_amount: amount * 100,
         currency: 'huf',
         product_data: {
