@@ -1,6 +1,6 @@
 /// <reference types="stripe-event-types" />
 
-import stripe from 'stripe';
+import stripe from "stripe";
 
 class StripeService {
   constructor() {
@@ -9,14 +9,7 @@ class StripeService {
     this.client = stripe(process.env.STRIPE_SECRET_KEY);
   }
 
-  /**
-   * @param {any} context
-   * @param {string} userId
-   * @param {string} successUrl
-   * @param {string} failureUrl
-   * @param {number|string} amountHuf
-   */
-  async checkoutPayment(context, userId, successUrl, failureUrl, amountHuf) {
+  async checkoutPayment(context, userId, successUrl, failureUrl, amountHuf, appwriteOrderId) {
     const amount = Math.round(Number(amountHuf || 0));
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -24,21 +17,18 @@ class StripeService {
       return null;
     }
 
-    /** @type {import('stripe').Stripe.Checkout.SessionCreateParams.LineItem} */
     const lineItem = {
       price_data: {
         unit_amount: amount * 100,
-        currency: 'huf',
-        product_data: {
-          name: 'Rendeles',
-        },
+        currency: "huf",
+        product_data: { name: "Rendeles" },
       },
       quantity: 1,
     };
 
     try {
       return await this.client.checkout.sessions.create({
-        payment_method_types: ['card'],
+        payment_method_types: ["card"],
         line_items: [lineItem],
         success_url: successUrl,
         cancel_url: failureUrl,
@@ -46,8 +36,9 @@ class StripeService {
         metadata: {
           userId,
           amountHuf: String(amount),
+          appwriteOrderId: appwriteOrderId ?? "",
         },
-        mode: 'payment',
+        mode: "payment",
       });
     } catch (err) {
       context.error(err);
@@ -55,14 +46,11 @@ class StripeService {
     }
   }
 
-  /**
-   * @returns {import("stripe").Stripe.DiscriminatedEvent | null}
-   */
   validateWebhook(context, req) {
     try {
-      const signature = req.headers['stripe-signature'];
+      const signature = req.headers["stripe-signature"];
       if (!signature) {
-        context.error('Missing stripe-signature header.');
+        context.error("Missing stripe-signature header.");
         return null;
       }
 
@@ -72,7 +60,7 @@ class StripeService {
         process.env.STRIPE_WEBHOOK_SECRET
       );
 
-      return /** @type {import("stripe").Stripe.DiscriminatedEvent} */ (event);
+      return event;
     } catch (err) {
       context.error(err);
       return null;

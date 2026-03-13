@@ -1,4 +1,4 @@
-import { Client, Databases, ID, Permission, Role } from 'node-appwrite';
+import { Client, Databases, ID, Permission, Role } from "node-appwrite";
 
 class AppwriteService {
   constructor(apiKey) {
@@ -11,88 +11,50 @@ class AppwriteService {
     this.databases = new Databases(client);
   }
 
-  /**
-   * @param {string} databaseId
-   * @param {string} collectionId
-   * @param {string} userId
-   * @param {string} orderId
-   * @returns {Promise<void>}
-   */
-  async createOrder(databaseId, collectionId, userId, orderId) {
-    await this.databases.createDocument(
+  async createPendingOrder(databaseId, collectionId, userId, payload) {
+    const pricing = payload?.pricing ?? {};
+    const address = payload?.address ?? {};
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+
+    return this.databases.createDocument(
       databaseId,
       collectionId,
       ID.unique(),
       {
         userId,
-        orderId,
+        orderId: "pending",
+        status: "pending",
+
+        customerName: payload?.customerName ?? "",
+        phone: payload?.phone ?? "",
+
+        city: address?.city ?? "",
+        street: address?.street ?? "",
+        houseNumber: address?.houseNumber ?? "",
+        floorDoor: address?.floorDoor ?? "",
+
+        itemCount: Number(payload?.itemCount ?? 0),
+        itemsJson: JSON.stringify(items),
+
+        subtotalHuf: Number(pricing?.subtotalHuf ?? 0),
+        discountHuf: Number(pricing?.discountHuf ?? 0),
+        deliveryFeeHuf: Number(pricing?.deliveryFeeHuf ?? 0),
+        totalHuf: Number(pricing?.totalHuf ?? 0),
       },
       [Permission.read(Role.user(userId))]
     );
   }
 
-  /**
-   * @param {string} databaseId
-   * @returns {Promise<boolean>}
-   */
-  async doesOrdersDatabaseExist(databaseId) {
-    try {
-      await this.databases.get(databaseId);
-      return true;
-    } catch (err) {
-      if (err.code !== 404) throw err;
-      return false;
-    }
-  }
-
-  /**
-   * @param {string} databaseId
-   * @param {string} collectionId
-   * @returns {Promise<boolean>}
-   */
-  async setupOrdersDatabase(databaseId, collectionId) {
-    try {
-      await this.databases.create(databaseId, 'Orders Database');
-    } catch (err) {
-      // If resource already exists, we can ignore the error
-      if (err.code !== 409) throw err;
-    }
-
-    try {
-      await this.databases.createCollection(
-        databaseId,
-        collectionId,
-        'Orders Collection',
-        undefined,
-        true
-      );
-    } catch (err) {
-      if (err.code !== 409) throw err;
-    }
-
-    try {
-      await this.databases.createStringAttribute(
-        databaseId,
-        collectionId,
-        'userId',
-        255,
-        true
-      );
-    } catch (err) {
-      if (err.code !== 409) throw err;
-    }
-
-    try {
-      await this.databases.createStringAttribute(
-        databaseId,
-        collectionId,
-        'orderId',
-        255,
-        true
-      );
-    } catch (err) {
-      if (err.code !== 409) throw err;
-    }
+  async markOrderPaid(databaseId, collectionId, orderDocId, stripeSessionId) {
+    return this.databases.updateDocument(
+      databaseId,
+      collectionId,
+      orderDocId,
+      {
+        status: "paid",
+        orderId: stripeSessionId,
+      }
+    );
   }
 }
 
