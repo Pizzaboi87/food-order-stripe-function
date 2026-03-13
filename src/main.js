@@ -25,16 +25,24 @@ export default async (context) => {
     return res.text(html, 200, { 'Content-Type': 'text/html; charset=utf-8' });
   }
 
-  const appwrite = new AppwriteService(context.req.headers['x-appwrite-key']);
+  // Webhook hivasnal nincs x-appwrite-key header, ezert fallback env API key kell.
+  const appwrite = new AppwriteService(
+    context.req.headers['x-appwrite-key'] ?? process.env.APPWRITE_FUNCTION_API_KEY
+  );
   const stripe = new StripeService();
 
   switch (req.path) {
     case '/checkout': {
       const fallbackUrl = req.scheme + '://' + req.headers['host'] + '/';
 
-      const successUrl = req.body?.successUrl ?? fallbackUrl;
-      const failureUrl = req.body?.failureUrl ?? fallbackUrl;
-      const amountHuf = req.body?.amountHuf;
+      const body =
+        typeof req.body === 'string'
+          ? JSON.parse(req.body || '{}')
+          : (req.body ?? {});
+
+      const successUrl = body.successUrl ?? fallbackUrl;
+      const failureUrl = body.failureUrl ?? fallbackUrl;
+      const amountHuf = body.amountHuf;
 
       const userId = req.headers['x-appwrite-user-id'];
       if (!userId) {
@@ -73,8 +81,13 @@ export default async (context) => {
 
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const userId = session.metadata.userId;
+        const userId = session.metadata?.userId;
         const orderId = session.id;
+
+        if (!userId) {
+          error('Missing userId in Stripe session metadata.');
+          return res.json({ success: false }, 400);
+        }
 
         await appwrite.createOrder(databaseId, collectionId, userId, orderId);
         log(

@@ -18,12 +18,18 @@ class StripeService {
    * @param {number|string} amountHuf
    */
   async checkoutPayment(context, userId, successUrl, failureUrl, amountHuf) {
-    const amount = Math.max(1, Math.round(Number(amountHuf || 0)));
+    const amount = Math.round(Number(amountHuf || 0));
+
+    if (!Number.isFinite(amount) || amount < 175) {
+      context.error(`Invalid amountHuf: ${amountHuf}`);
+      return null;
+    }
 
     /** @type {import('stripe').Stripe.Checkout.SessionCreateParams.LineItem} */
     const lineItem = {
       price_data: {
-        unit_amount: amount * 100,
+        // HUF is zero-decimal: 2800 Ft => unit_amount 2800
+        unit_amount: amount,
         currency: 'huf',
         product_data: {
           name: 'Rendeles',
