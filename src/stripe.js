@@ -11,18 +11,22 @@ class StripeService {
   }
 
   /**
+   * @param {any} context
    * @param {string} userId
    * @param {string} successUrl
    * @param {string} failureUrl
+   * @param {number|string} amountHuf
    */
-  async checkoutPayment(context, userId, successUrl, failureUrl) {
+  async checkoutPayment(context, userId, successUrl, failureUrl, amountHuf) {
+    const amount = Math.max(1, Math.round(Number(amountHuf || 0)));
+
     /** @type {import('stripe').Stripe.Checkout.SessionCreateParams.LineItem} */
     const lineItem = {
       price_data: {
-        unit_amount: 1000, // $10.00
-        currency: 'usd',
+        unit_amount: amount,
+        currency: 'huf',
         product_data: {
-          name: 'Product',
+          name: 'Rendeles',
         },
       },
       quantity: 1,
@@ -37,6 +41,7 @@ class StripeService {
         client_reference_id: userId,
         metadata: {
           userId,
+          amountHuf: String(amount),
         },
         mode: 'payment',
       });
