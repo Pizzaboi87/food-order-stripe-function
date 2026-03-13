@@ -4,7 +4,6 @@ import stripe from 'stripe';
 
 class StripeService {
   constructor() {
-    // Note: stripe cjs API types are faulty
     /** @type {import('stripe').Stripe} */
     // @ts-ignore
     this.client = stripe(process.env.STRIPE_SECRET_KEY);
@@ -20,7 +19,7 @@ class StripeService {
   async checkoutPayment(context, userId, successUrl, failureUrl, amountHuf) {
     const amount = Math.round(Number(amountHuf || 0));
 
-    if (!Number.isFinite(amount) || amount < 175) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       context.error(`Invalid amountHuf: ${amountHuf}`);
       return null;
     }
@@ -28,8 +27,8 @@ class StripeService {
     /** @type {import('stripe').Stripe.Checkout.SessionCreateParams.LineItem} */
     const lineItem = {
       price_data: {
-        // HUF is zero-decimal: 2800 Ft => unit_amount 2800
-        unit_amount: amount,
+        // A te adatmodellhez itt kell a *100.
+        unit_amount: amount * 100,
         currency: 'huf',
         product_data: {
           name: 'Rendeles',
@@ -62,11 +61,18 @@ class StripeService {
    */
   validateWebhook(context, req) {
     try {
+      const signature = req.headers['stripe-signature'];
+      if (!signature) {
+        context.error('Missing stripe-signature header.');
+        return null;
+      }
+
       const event = this.client.webhooks.constructEvent(
         req.bodyBinary,
-        req.headers['stripe-signature'],
+        signature,
         process.env.STRIPE_WEBHOOK_SECRET
       );
+
       return /** @type {import("stripe").Stripe.DiscriminatedEvent} */ (event);
     } catch (err) {
       context.error(err);

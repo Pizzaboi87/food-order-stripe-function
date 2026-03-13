@@ -25,15 +25,15 @@ export default async (context) => {
     return res.text(html, 200, { 'Content-Type': 'text/html; charset=utf-8' });
   }
 
-  // Webhook hivasnal nincs x-appwrite-key header, ezert fallback env API key kell.
-  const appwrite = new AppwriteService(
-    context.req.headers['x-appwrite-key'] ?? process.env.APPWRITE_FUNCTION_API_KEY
-  );
+  const apiKeyFromHeader = context.req.headers['x-appwrite-key'];
+  const apiKeyFromEnv = process.env.APPWRITE_FUNCTION_API_KEY;
+
+  const appwrite = new AppwriteService(apiKeyFromHeader ?? apiKeyFromEnv);
   const stripe = new StripeService();
 
   switch (req.path) {
     case '/checkout': {
-      const fallbackUrl = req.scheme + '://' + req.headers['host'] + '/';
+      const fallbackUrl = `${req.scheme}://${req.headers['host']}/`;
 
       const body =
         typeof req.body === 'string'
@@ -63,9 +63,6 @@ export default async (context) => {
         return res.redirect(failureUrl, 303);
       }
 
-      context.log('Session:');
-      context.log(session);
-
       log(`Created Stripe checkout session for user ${userId}.`);
       return res.redirect(session.url, 303);
     }
@@ -76,24 +73,24 @@ export default async (context) => {
         return res.json({ success: false }, 401);
       }
 
-      context.log('Event:');
-      context.log(event);
-
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const userId = session.metadata?.userId;
+        const userId = session.metadata?.userId || session.client_reference_id;
         const orderId = session.id;
 
         if (!userId) {
-          error('Missing userId in Stripe session metadata.');
+          error('Missing userId in Stripe session metadata/client_reference_id.');
           return res.json({ success: false }, 400);
         }
 
-        await appwrite.createOrder(databaseId, collectionId, userId, orderId);
-        log(
-          `Created order document for user ${userId} with Stripe order ID ${orderId}`
-        );
-        return res.json({ success: true });
+        try {
+          await appwrite.createOrder(databaseId, collectionId, userId, orderId);
+          log(`Created order for user ${userId} with Stripe order ID ${orderId}`);
+          return res.json({ success: true });
+        } catch (err) {
+          error(`Failed to write order: ${err?.message ?? err}`);
+          return res.json({ success: false, error: 'Failed to write order.' }, 500);
+        }
       }
 
       return res.json({ success: true });
